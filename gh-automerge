@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Set a pull request to auto-merge (squash)
+# $1: commit to get merge commit body from, defaults to "HEAD", pass "all" to use commits from the whole branch
+# $2+: other parameters for `gh pr merge`
+
+subject="$(gh pr view --json=title,number --template="{{ .title }} (#{{ .number }})")"
+
+branch_commits_as_markdown_list() {
+    remote='origin'
+    base_ref="$(gh pr view --json baseRefName --jq '.baseRefName')"
+    # 1. Format commits as Markdown list items:
+    # - <subject>
+    #   <body indented by two spaces>
+    #
+    # 2. Replace `# ` with `- `, preserving any indentation, to change comments into list items
+    # 3. Replace tabs with four spaces so that indentation works correctly in Markdown
+    git log \
+        "$remote"/"$base_ref".. \
+        --pretty='format:- %s%w(0,2,2)%+b' \
+        -- |
+        sed -E -e 's/#(\s+)/\1- /g' -e 's/\t/    /g'
+}
+
+body_source="${1:-HEAD}"
+if [ "$body_source" = 'all' ]; then
+    body="$(branch_commits_as_markdown_list)"
+else
+    body="$(git show --no-patch --pretty="%b" )"
+fi
+
+read -r -p "${subject}
+
+${body}
+
+→ Press enter to proceed with this commit message "
+
+gh pr merge \
+   --squash \
+   --subject="$subject" \
+   --body="$body" \
+   --delete-branch \
+   --auto \
+   "${@:2}"
+
+template='Merge commit message:{{ "\n" }}{{ .autoMergeRequest.commitHeadline }}{{ "\n" }}{{ .autoMergeRequest.commitBody }}'
+gh pr view \
+  --json=autoMergeRequest \
+  --template="$template"
+
+warning_message='**Auto-merge enabled**: approving this pull request will merge it.'
+body="$(gh pr view --json body --jq '.body')"
+if [[ "$body" != *$warning_message* ]]; then
+    updated_body="> [!IMPORTANT]
+> $warning_message
+$body"
+    echo "$updated_body" | gh pr edit --body-file='-'
+fi
