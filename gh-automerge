@@ -55,6 +55,7 @@ body="$(gh pr view --json body --jq '.body')"
 if [[ "$body" != *$warning_message* ]]; then
     updated_body="> [!IMPORTANT]
 > $warning_message
+
 $body"
     echo "$updated_body" | gh pr edit --body-file='-'
 fi
