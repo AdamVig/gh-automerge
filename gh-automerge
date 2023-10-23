@@ -7,10 +7,10 @@ set -euo pipefail
 # $2+: other parameters for `gh pr merge`
 
 subject="$(gh pr view --json=title,number --template="{{ .title }} (#{{ .number }})")"
+base_ref="$(gh pr view --json baseRefName --jq '.baseRefName')"
 
 branch_commits_as_markdown_list() {
     remote='origin'
-    base_ref="$(gh pr view --json baseRefName --jq '.baseRefName')"
     # 1. Format commits as Markdown list items:
     # - <subject>
     #   <body indented by two spaces>
@@ -50,7 +50,15 @@ gh pr view \
   --json=autoMergeRequest \
   --template="$template"
 
+thread_resolution_required="$(gh api \
+"/repos/{owner}/{repo}/rules/branches/${base_ref}" \
+--jq='map(select(.type == "pull_request") | .parameters.required_review_thread_resolution) | any'
+)"
+
 warning_message='**Auto-merge enabled**: approving this pull request will merge it.'
+if [ "$thread_resolution_required" = 'true' ]; then
+	warning_message+=' To approve conditionally, <span title="Because &ldquo;Require conversation resolution before merging&rdquo; is enabled.">make at least one comment in your review</span>.'
+fi
 body="$(gh pr view --json body --jq '.body')"
 if [[ "$body" != *$warning_message* ]]; then
     updated_body="> [!IMPORTANT]
