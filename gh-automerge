@@ -8,6 +8,12 @@ set -euo pipefail
 
 subject="$(gh pr view --json=title,number --template="{{ .title }} (#{{ .number }})")"
 base_ref="$(gh pr view --json baseRefName --jq '.baseRefName')"
+is_draft="$(gh pr view --json=isDraft --jq='.isDraft')"
+
+if [ "$is_draft" = "true" ]; then
+	read -r -p "Pull request is a draft. Press enter to mark as ready for review. "
+	gh pr ready
+fi
 
 branch_commits_as_markdown_list() {
     remote='origin'
