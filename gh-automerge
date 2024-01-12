@@ -43,6 +43,7 @@ ${body}
 
 → Press enter to proceed with this commit message "
 
+branch_before="$(git symbolic-ref --short HEAD)"
 gh pr merge \
    --squash \
    --subject="$subject" \
@@ -50,6 +51,11 @@ gh pr merge \
    --delete-branch \
    --auto \
    "${@:2}"
+
+if [ "$(git symbolic-ref --short HEAD)" != "$branch_before" ]; then
+	echo 'Pull request merged'
+	exit
+fi
 
 template='Merge commit message:{{ "\n" }}{{ .autoMergeRequest.commitHeadline }}{{ "\n" }}{{ .autoMergeRequest.commitBody }}'
 gh pr view \
