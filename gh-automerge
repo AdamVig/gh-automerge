@@ -3,11 +3,11 @@
 set -euo pipefail
 
 # Set a pull request to auto-merge (squash)
-# $1: commit to get merge commit body from, defaults to "HEAD", pass "all" to use commits from the whole branch
-# $2+: other parameters for `gh pr merge`
+# $@: parameters for `gh pr merge`
 
 subject="$(gh pr view --json=title,number --template="{{ .title }} (#{{ .number }})")"
 base_ref="$(gh pr view --json baseRefName --jq '.baseRefName')"
+revision_range="origin/${base_ref}..HEAD"
 is_draft="$(gh pr view --json=isDraft --jq='.isDraft')"
 
 if [ "$is_draft" = "true" ]; then
@@ -16,7 +16,6 @@ if [ "$is_draft" = "true" ]; then
 fi
 
 branch_commits_as_markdown_list() {
-    remote='origin'
     # 1. Format commits as Markdown list items:
     # - <subject>
     #   <body indented by two spaces>
@@ -24,17 +23,33 @@ branch_commits_as_markdown_list() {
     # 2. Replace `# ` with `- `, preserving any indentation, to change comments into list items
     # 3. Replace tabs with four spaces so that indentation works correctly in Markdown
     git log \
-        "$remote"/"$base_ref".. \
+        "$revision_range" \
         --pretty='format:- %s%w(0,2,2)%+b' \
         -- |
         sed -E -e 's/#(\s+)/\1- /g' -e 's/\t/    /g'
 }
 
-body_source="${1:-HEAD}"
-if [ "$body_source" = 'all' ]; then
-    body="$(branch_commits_as_markdown_list)"
+if (( $(git rev-list --count "$revision_range" ) == 1 )); then
+	body_source='HEAD'
 else
-    body="$(git show --no-patch --pretty="%b" )"
+	all_commits="$(branch_commits_as_markdown_list)"
+	body_source="$(
+	(
+		echo 'all';
+		git log --pretty='format:%H' "$base_ref"..HEAD
+	) | fzf \
+					--prompt='Select commit(s) to use for merge commit body' \
+					--preview \
+					"[ {} = 'all' ] && \
+					echo '${all_commits}' || \
+					git show --no-patch --pretty='format:%b' {}"
+)"
+fi
+
+if [ "$body_source" = 'all' ]; then
+  body="$all_commits"
+else
+  body="$(git show --no-patch --pretty="%b" "$body_source" )"
 fi
 
 read -r -p "${subject}

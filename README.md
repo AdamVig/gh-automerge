@@ -6,7 +6,8 @@ A GitHub (`gh`) CLI extension for enabling auto-merge on a pull request.
 
 	> Create auto-merge extension (#1234)
 
-- Generates a body for the merge commit from a commit (defaults to `HEAD`) or from all commits in the branch, formatted as a Markdown list.
+- Generates a body for the merge commit.
+- If the branch contains more than one commit, asks if you want to use a specific commit or all commits (formatted as a markdown list) for the merge commit body.
 - Prompts for confirmation of the merge commit message before proceeding.
 - Displays the actual auto-merge commit message after enabling it.
 - Adds a warning to the top of the pull request body for reviewers:
@@ -22,21 +23,12 @@ A GitHub (`gh`) CLI extension for enabling auto-merge on a pull request.
    ```shell
    gh extension install AdamVig/gh-automerge
    ```
+3. Ensure you have `fzf` installed.
 
 ## Usage
 
 ```shell
 # In a GitHub repository
 
-# To enable auto-merge using HEAD for the body
 gh automerge
-
-# Using a specific commit for the body
-gh automerge 3bdeb1f30feb17c913b2ca4e0640678e0a69128d
-
-# Using the second-to-last commit for the body
-gh automerge HEAD^
-
-# Using all commits in the branch for the body
-gh automerge all
 ```
